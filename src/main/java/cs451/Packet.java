@@ -3,6 +3,7 @@ package cs451;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.util.Arrays;
+import java.util.List;
 
 public class Packet {
 
@@ -24,6 +25,15 @@ public class Packet {
             this.data = Arrays.copyOf(data, dataLen);
         }
     }
+    
+    public void addVectorClock(List<Integer> vc) {
+        ByteArrayOutputStream bs = new ByteArrayOutputStream(vc.size());
+        DataOutputStream ds = new DataOutputStream(bs);
+        //vc.forEach(ds::writeInt);
+        data = bs.toByteArray();
+    }
+
+    //public getVC ?
 
     @Override
     public boolean equals(Object obj) {

@@ -26,7 +26,6 @@ public class FIFO {
     public void fifoBroadcast(Packet pkt) {
         String event = "b " + pkt.getSeqNum();
         outputQueue.add(event);
-
         lsn.addAndGet(1);
         pkt.setSeqNum(lsn.get());
         urb.urbBroadcast(pkt);

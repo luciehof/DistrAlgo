@@ -12,6 +12,7 @@ public class URB {
     private final Host self;
     Set<PerfectLink> perfectLinks;
     private FIFO fifo;
+    private LCausal lCausal;
 
     public URB(Host self, Map<Integer, PerfectLink> idToPerfectLinks) {
         this.self = self;
@@ -38,7 +39,8 @@ public class URB {
     }
 
     public void urbDeliver(Packet pkt) {
-        fifo.urbDeliver(pkt);
+        lCausal.urbDeliver(pkt);
+        //fifo.urbDeliver(pkt);
     }
 
     // bebDeliver is called by lower layer PerfectLink's deliver function
@@ -81,5 +83,9 @@ public class URB {
 
     public void setFifo(FIFO fifo) {
         this.fifo = fifo;
+    }
+
+    public void setLCausal(LCausal lCausal) {
+        this.lCausal = lCausal;
     }
 }

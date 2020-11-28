@@ -94,7 +94,7 @@ public class Main {
         Host currentProcess = idToHost.get(parser.myId());
 
         // get nb of msgs to broadcast per process
-        int NB_MSGS = getConfig(parser);
+        int NB_MSGS = getNbMsg(parser);
 
         UDP udp = new UDP(currentProcess);
         Map<Integer, PerfectLink> idToPerfectLinks = new ConcurrentHashMap<>();
@@ -104,8 +104,10 @@ public class Main {
         }
         udp.setIdToPerfectLinks(idToPerfectLinks); // can now start receiving msgs from those links and deliver them to appropriate PL
         URB urb = new URB(currentProcess, idToPerfectLinks); // need to set urb in every PL
-        FIFO fifo = new FIFO(urb, parser.hosts().size());
-        urb.setFifo(fifo);
+        //FIFO fifo = new FIFO(urb, parser.hosts().size());
+        //urb.setFifo(fifo);
+        LCausal lCausal = new LCausal(urb, parser.hosts().size(), currentProcess.getId(), getAffectingProc(parser));
+        urb.setLCausal(lCausal);
 
         Coordinator coordinator = new Coordinator(parser.myId(), parser.barrierIp(), parser.barrierPort(), parser.signalIp(), parser.signalPort());
 
@@ -117,8 +119,9 @@ public class Main {
             if (CRASHED) {
                 break;
             }
-            Packet packet = new Packet(seqNum, currentProcess.getId()); //TODO: seqnum not necessary here, set in fifo !!
-            fifo.fifoBroadcast(packet);
+            Packet packet = new Packet(seqNum, currentProcess.getId());
+            //fifo.fifoBroadcast(packet);
+            lCausal.lCausalBroadcast(packet);
         }
 
         System.out.println("Signaling end of broadcasting messages");
@@ -130,7 +133,7 @@ public class Main {
         }
     }
 
-    private static int getConfig(Parser parser) {
+    private static int getNbMsg(Parser parser) {
         Scanner scanner = null;
         try {
             scanner = new Scanner(new File(parser.config()));
@@ -141,6 +144,24 @@ public class Main {
             return scanner.nextInt();
         } else {
             return 1;
+        }
+    }
+
+    private static List<Integer> getAffectingProc(Parser parser) {
+        List<Integer> affectingProc = new ArrayList<>();
+        Scanner scanner = null;
+        try {
+            scanner = new Scanner(new File(parser.config()));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        if (scanner != null) {
+            while (scanner.hasNextInt()) {
+                affectingProc.add(scanner.nextInt());
+            }
+            return affectingProc;
+        } else {
+            return affectingProc;
         }
     }
 }

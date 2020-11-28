@@ -1,9 +1,9 @@
 package cs451;
 
-import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static cs451.Main.outputQueue;
@@ -13,21 +13,34 @@ public class LCausal {
     private final AtomicInteger lsn = new AtomicInteger();
     private final Set<Packet> pending;
     private final URB urb;
-    private final CopyOnWriteArrayList<Integer> vectorClock;
+    private final Map<Integer, Integer> lsnFromAffectingProc;
+    private final Map<Integer, Integer> lsnFromAllProc;
+    private final int myId;
 
-    public LCausal(URB urb, int nProc) {
+    public LCausal(URB urb, int nProc, int currentId, List<Integer> affectingProc) {
+        myId = currentId;
         this.urb = urb;
         pending = ConcurrentHashMap.newKeySet();
         lsn.set(0);
-        vectorClock = new CopyOnWriteArrayList(Collections.singleton(new int[nProc]));
+        lsnFromAffectingProc = new ConcurrentHashMap<>(); // init with all affecting processes as keys
+        for (int hostId : affectingProc) {
+            lsnFromAffectingProc.put(hostId,0);
+        }
+        lsnFromAllProc = new ConcurrentHashMap<>(); // init with all processes as keys
+        for (int hostId=0; hostId<nProc; ++hostId) {
+            lsnFromAllProc.put(hostId, 0);
+        }
     }
 
     public void lCausalBroadcast(Packet pkt) {
         String event = "b " + pkt.getSeqNum();
         outputQueue.add(event);
-        //vectorClock.add(myId, lsn);
+        lsnFromAffectingProc.put(myId, lsn.get());
+        lsnFromAllProc.put(myId, lsn.get());
         lsn.addAndGet(1);
-        //urb.urbBroadcast(vectorClock, pkt); // TODO: construct packet with previous pkt value and new VC
+        pkt.setSeqNum(lsn.get());
+        pkt.addVectorClock(lsnFromAffectingProc);
+        urb.urbBroadcast(pkt);
     }
 
     public void lCausalDeliver(Packet pkt) {
@@ -38,13 +51,15 @@ public class LCausal {
     public void urbDeliver(Packet pkt) {
         pending.add(pkt);
         for (Packet p : pending) {
-            //if (p.getVectorClock() <= vectorClock) { // TODO: function to compare every values of VCs
+            if (p.smallerVectorClockThan(lsnFromAllProc)) {
                 pending.remove(p);
-                int rank = p.getInitialSenderId()-1;
-                int prev = vectorClock.get(rank);
-                vectorClock.add(rank, prev+1);
+                int prev = lsnFromAllProc.get(p.getInitialSenderId());
+                if (lsnFromAffectingProc.containsKey(p.getInitialSenderId())) {
+                    lsnFromAffectingProc.replace(p.getInitialSenderId(), prev+1);
+                }
+                lsnFromAllProc.replace(p.getInitialSenderId(), prev+1);
                 lCausalDeliver(p);
-            //}
+            }
         }
     }
 

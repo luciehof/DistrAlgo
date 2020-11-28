@@ -8,6 +8,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static cs451.Main.addrToId;
 import static cs451.Main.idToHost;
@@ -71,26 +72,55 @@ public class UDP {
 
             PerfectLink perfectLink = idToPerfectLinks.get(senderId); // get PL corresponding to sender and deliver on this PL
 
-            // read data in ds, if -1, no more data, else check if ACK
-            byte[] content = new byte[ACK.length];
             // check if pkt is an ACK
-            if (hasMoreContent(ds, content) && Arrays.equals(content, ACK)) {
+            if (isAck(ds)) {
                 perfectLink.handleAck(seqNum);
 
             } else {
-                perfectLink.deliver(idToHost.get(senderId), new Packet(seqNum, initialSenderId));
+                Packet pkt = new Packet(seqNum, initialSenderId);
+                Map<Integer, Integer> lsnFromAffectingProc = new ConcurrentHashMap<>();
+                if (hasVectorClock(ds,lsnFromAffectingProc)) {
+                    pkt.addVectorClock(lsnFromAffectingProc);
+                }
+                perfectLink.deliver(idToHost.get(senderId), pkt);
             }
         }
     }
 
-    private boolean hasMoreContent(DataInputStream ds, byte[] content) {
-        int read_bytes = -1;
+    private boolean isAck(DataInputStream ds) {
+        byte[] content = new byte[ACK.length];
         try {
-            read_bytes = ds.read(content, 0, ACK.length);
+            ds.readNBytes(content, 0, ACK.length);
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return read_bytes != -1;
+        return Arrays.equals(content, ACK);
+    }
+
+    private boolean hasVectorClock(DataInputStream ds, Map<Integer, Integer> lsnFromAffectingProc) {
+        boolean isLsn = false;
+        int hostId = 0;
+        int n_int_read = 0;
+        int readInt = -1;
+        while (n_int_read==0 || readInt!=-1) {
+            try {
+                readInt = ds.readInt();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            if (readInt!=-1) {
+                n_int_read +=1;
+                // read hostId then lsn alternatively, when have both put in map
+                if (isLsn) {
+                    lsnFromAffectingProc.put(hostId, readInt);
+                    isLsn = false;
+                } else {
+                    isLsn = true;
+                    hostId = readInt;
+                }
+            }
+        }
+        return n_int_read>0;
     }
 
 

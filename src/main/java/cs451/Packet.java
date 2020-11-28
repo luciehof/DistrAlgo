@@ -2,8 +2,10 @@ package cs451;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Packet {
 
@@ -12,6 +14,7 @@ public class Packet {
     private byte[] data;
     public static int PKT_SIZE = 10;
     private int dataLen = 0;
+    private Map<Integer, Integer> lsnFromAffectingProc;
 
     public Packet(int seqNum, int initialSenderId) {
         this.seqNum = seqNum;
@@ -26,14 +29,25 @@ public class Packet {
         }
     }
     
-    public void addVectorClock(List<Integer> vc) {
-        ByteArrayOutputStream bs = new ByteArrayOutputStream(vc.size());
+    public void addVectorClock(Map<Integer, Integer> lsnFromAffectingProc) {
+        this.lsnFromAffectingProc = new ConcurrentHashMap<>(lsnFromAffectingProc);
+        ByteArrayOutputStream bs = new ByteArrayOutputStream(4*2*lsnFromAffectingProc.size()); // nb bytes = 4 * nb int
+        // create 'list' representing map(hostId->lsn) as [hostId1, lsn1, hostId2, lsn2, ...]
         DataOutputStream ds = new DataOutputStream(bs);
-        //vc.forEach(ds::writeInt);
+        for (Map.Entry<Integer, Integer> entry : lsnFromAffectingProc.entrySet()) {
+            try {
+                ds.writeInt(entry.getKey());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                ds.writeInt(entry.getValue());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         data = bs.toByteArray();
     }
-
-    //public getVC ?
 
     @Override
     public boolean equals(Object obj) {
@@ -80,5 +94,17 @@ public class Packet {
         hash = 31 * hash + seqNum;
         hash = 31 * hash + initialSenderId;
         return hash;
+    }
+
+    public boolean smallerVectorClockThan(Map<Integer, Integer> greaterVC) {
+        if (lsnFromAffectingProc == null) {
+            return false;
+        }
+        for (Map.Entry<Integer, Integer> entry : lsnFromAffectingProc.entrySet()) {
+            if (greaterVC.getOrDefault(entry.getKey(),0) > entry.getValue()) {
+                return false;
+            }
+        }
+        return true;
     }
 }

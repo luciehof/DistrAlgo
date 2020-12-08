@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static cs451.Main.addrToId;
 import static cs451.Main.idToHost;
@@ -19,11 +20,13 @@ public class UDP {
     private final DatagramSocket socket;
     public final static byte[] ACK = "A".getBytes();
     private Map<Integer, PerfectLink> idToPerfectLinks;
+    private final ConcurrentLinkedQueue<DatagramPacket> dps = new ConcurrentLinkedQueue<>();
 
 
     public UDP(Host sender) {
         socket = sender.getSocket();
         new Thread(this::listen).start();
+        new Thread(this::handleReceivedPackets).start();
         System.out.println("UDP listening thread started.");
     }
 
@@ -54,42 +57,51 @@ public class UDP {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            dps.add(dp);
+        }
+    }
 
-            byte[] payload = dp.getData(); //TODO: maybe put rcved payloads in a queue for some other thread to deal with
-            InetAddress senderInetAddress = dp.getAddress();
-            int senderPort = dp.getPort();
-            String completeSenderAddr = senderInetAddress.toString().substring(1).concat(":".concat(String.valueOf(senderPort)));
-            int senderId = addrToId.get(completeSenderAddr);
+    private void handleReceivedPackets() {
+        while (true) {
+            if (!dps.isEmpty()) {
+                dps.forEach(dp -> {
+                    byte[] payload = dp.getData(); //TODO: maybe put rcved payloads in a queue for some other thread to deal with
+                    InetAddress senderInetAddress = dp.getAddress();
+                    int senderPort = dp.getPort();
+                    String completeSenderAddr = senderInetAddress.toString().substring(1).concat(":".concat(String.valueOf(senderPort)));
+                    int senderId = addrToId.get(completeSenderAddr);
 
-            DataInputStream ds = new DataInputStream(new ByteArrayInputStream(payload));
-            int seqNum = 0;
-            try {
-                seqNum = ds.readInt();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            int initialSenderId = -1;
-            try {
-                initialSenderId = ds.readInt();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+                    DataInputStream ds = new DataInputStream(new ByteArrayInputStream(payload));
+                    int seqNum = 0;
+                    try {
+                        seqNum = ds.readInt();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    int initialSenderId = -1;
+                    try {
+                        initialSenderId = ds.readInt();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
 
-            PerfectLink perfectLink = idToPerfectLinks.get(senderId); // get PL corresponding to sender and deliver on this PL
+                    PerfectLink perfectLink = idToPerfectLinks.get(senderId); // get PL corresponding to sender and deliver on this PL
 
-            // check if pkt is an ACK
-            if (isAck(ds)) {
-                System.out.println("ACK "+senderId+" "+seqNum);
-                perfectLink.handleAck(seqNum);
+                    // check if pkt is an ACK
+                    if (isAck(ds)) {
+                        System.out.println("ACK "+senderId+" "+seqNum);
+                        perfectLink.handleAck(seqNum);
 
-            } else {
-                System.out.println("UDP receive "+senderId+" "+seqNum);
-                Packet pkt = new Packet(seqNum, initialSenderId);
-                Map<Integer, Integer> lsnFromAffectingProc = new ConcurrentHashMap<>();
-                if (hasVectorClock(ds,lsnFromAffectingProc)) {
-                    pkt.addVectorClock(lsnFromAffectingProc);
-                }
-                new Thread(() -> perfectLink.deliver(idToHost.get(senderId), pkt)).start(); //TODO: overkilling thread?
+                    } else {
+                        System.out.println("UDP receive "+senderId+" "+seqNum);
+                        Packet pkt = new Packet(seqNum, initialSenderId);
+                        Map<Integer, Integer> lsnFromAffectingProc = new ConcurrentHashMap<>();
+                        if (hasVectorClock(ds,lsnFromAffectingProc)) {
+                            pkt.addVectorClock(lsnFromAffectingProc);
+                        }
+                        perfectLink.deliver(idToHost.get(senderId), pkt);
+                    }
+                });
             }
         }
     }

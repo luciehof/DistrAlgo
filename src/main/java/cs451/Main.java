@@ -124,8 +124,6 @@ public class Main {
             lCausal.lCausalBroadcast(packet);
         }
 
-        Thread.sleep(60000);
-
         System.out.println("Signaling end of broadcasting messages");
         coordinator.finishedBroadcasting();
 

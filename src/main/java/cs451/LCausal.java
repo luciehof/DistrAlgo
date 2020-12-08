@@ -24,10 +24,10 @@ public class LCausal {
         lsn.set(0);
         lsnFromAffectingProc = new ConcurrentHashMap<>(); // init with all affecting processes as keys
         for (int hostId : affectingProc) {
-            lsnFromAffectingProc.put(hostId,0);
+            lsnFromAffectingProc.put(hostId, 0);
         }
         lsnFromAllProc = new ConcurrentHashMap<>(); // init with all processes as keys
-        for (int hostId=0; hostId<nProc; ++hostId) {
+        for (int hostId = 0; hostId < nProc; ++hostId) {
             lsnFromAllProc.put(hostId, 0);
         }
     }
@@ -51,13 +51,13 @@ public class LCausal {
     public void urbDeliver(Packet pkt) {
         pending.add(pkt);
         for (Packet p : pending) {
-            if (p.smallerVectorClockThan(lsnFromAllProc)) {
+            if (p.smallerVectorClockThan(lsnFromAllProc) && p.getSeqNum() == lsnFromAllProc.get(p.getInitialSenderId()) + 1) {
                 pending.remove(p);
                 int prev = lsnFromAllProc.get(p.getInitialSenderId());
                 if (lsnFromAffectingProc.containsKey(p.getInitialSenderId())) {
-                    lsnFromAffectingProc.replace(p.getInitialSenderId(), prev+1);
+                    lsnFromAffectingProc.replace(p.getInitialSenderId(), prev + 1);
                 }
-                lsnFromAllProc.replace(p.getInitialSenderId(), prev+1);
+                lsnFromAllProc.replace(p.getInitialSenderId(), prev + 1);
                 lCausalDeliver(p);
             }
         }

@@ -24,6 +24,7 @@ public class UDP {
     public UDP(Host sender) {
         socket = sender.getSocket();
         new Thread(this::listen).start();
+        System.out.println("UDP listening thread started.");
     }
 
     public void setIdToPerfectLinks(Map<Integer, PerfectLink> idToPerfectLinks) {
@@ -38,19 +39,23 @@ public class UDP {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        //System.out.println("UDP send "+pkt.getInitialSenderId()+" "+pkt.getSeqNum()); // I send several times the same pkt: why? (way more than twice)
     }
 
     public void listen() {
         while (true) {
 
+            System.out.println("UDP listening.");
             DatagramPacket dp = new DatagramPacket(new byte[PKT_SIZE], PKT_SIZE);
             try {
+                System.out.println("Waiting for msgs in UDP socket.");
                 socket.receive(dp);
+                System.out.println("After receive in UDP socket.");
             } catch (IOException e) {
                 e.printStackTrace();
             }
 
-            byte[] payload = dp.getData();
+            byte[] payload = dp.getData(); //TODO: maybe put rcved payloads in a queue for some other thread to deal with
             InetAddress senderInetAddress = dp.getAddress();
             int senderPort = dp.getPort();
             String completeSenderAddr = senderInetAddress.toString().substring(1).concat(":".concat(String.valueOf(senderPort)));
@@ -74,15 +79,17 @@ public class UDP {
 
             // check if pkt is an ACK
             if (isAck(ds)) {
+                System.out.println("ACK "+senderId+" "+seqNum);
                 perfectLink.handleAck(seqNum);
 
             } else {
+                System.out.println("UDP receive "+senderId+" "+seqNum);
                 Packet pkt = new Packet(seqNum, initialSenderId);
                 Map<Integer, Integer> lsnFromAffectingProc = new ConcurrentHashMap<>();
                 if (hasVectorClock(ds,lsnFromAffectingProc)) {
                     pkt.addVectorClock(lsnFromAffectingProc);
                 }
-                perfectLink.deliver(idToHost.get(senderId), pkt);
+                new Thread(() -> perfectLink.deliver(idToHost.get(senderId), pkt)).start(); //TODO: overkilling thread?
             }
         }
     }
@@ -91,9 +98,7 @@ public class UDP {
         byte[] content = new byte[ACK.length];
         try {
             ds.readNBytes(content, 0, ACK.length);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        } catch (Exception ignore) {}
         return Arrays.equals(content, ACK);
     }
 
@@ -105,9 +110,7 @@ public class UDP {
         while (n_int_read==0 || readInt!=-1) {
             try {
                 readInt = ds.readInt();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            } catch (Exception ignore) {}
             if (readInt!=-1) {
                 n_int_read +=1;
                 // read hostId then lsn alternatively, when have both put in map

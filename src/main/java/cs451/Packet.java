@@ -12,7 +12,7 @@ public class Packet {
     private int seqNum;
     private final int initialSenderId;
     private byte[] data;
-    public static int PKT_SIZE = 10;
+    public static int PKT_SIZE = 8;
     private int dataLen = 0;
     private Map<Integer, Integer> lsnFromAffectingProc;
 
@@ -27,6 +27,7 @@ public class Packet {
             dataLen = data.length;
             this.data = Arrays.copyOf(data, dataLen);
         }
+        PKT_SIZE += dataLen;
     }
     
     public void addVectorClock(Map<Integer, Integer> lsnFromAffectingProc) {
@@ -47,6 +48,7 @@ public class Packet {
             }
         }
         data = bs.toByteArray();
+        PKT_SIZE += data.length;
     }
 
     @Override
@@ -101,7 +103,7 @@ public class Packet {
             return false;
         }
         for (Map.Entry<Integer, Integer> entry : lsnFromAffectingProc.entrySet()) {
-            if (greaterVC.getOrDefault(entry.getKey(),0) > entry.getValue()) {
+            if (greaterVC.getOrDefault(entry.getKey(),0) < entry.getValue()) {
                 return false;
             }
         }

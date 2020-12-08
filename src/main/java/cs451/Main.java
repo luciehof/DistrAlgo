@@ -124,6 +124,8 @@ public class Main {
             lCausal.lCausalBroadcast(packet);
         }
 
+        Thread.sleep(60000);
+
         System.out.println("Signaling end of broadcasting messages");
         coordinator.finishedBroadcasting();
 
@@ -156,6 +158,19 @@ public class Main {
             e.printStackTrace();
         }
         if (scanner != null) {
+            assert scanner.hasNextLine();
+            scanner.nextLine();
+
+            int affectedProc = scanner.nextInt();
+            while (affectedProc != parser.myId() && scanner.hasNextLine()) {
+                scanner.nextLine();
+                assert scanner.hasNextInt();
+                affectedProc = scanner.nextInt();
+            }
+
+            String myDependencies = scanner.nextLine();
+            scanner.close();
+            scanner = new Scanner(myDependencies);
             while (scanner.hasNextInt()) {
                 affectingProc.add(scanner.nextInt());
             }

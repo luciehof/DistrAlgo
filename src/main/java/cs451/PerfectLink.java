@@ -35,10 +35,11 @@ public class PerfectLink {
             noAck.add(pkt.getSeqNum());
         }
         udp.send(pkt, otherProcess);
-        waitForAck();
+        //waitForAck(); // TODO: remove comment!!
     }
 
     public void deliver(Host sender, Packet pkt) {
+        System.out.println("PL deliver "+pkt.getInitialSenderId()+" "+pkt.getSeqNum());
         if (!delivered.contains(pkt)) {
             urb.bebDeliver(sender, pkt);
             delivered.add(pkt);

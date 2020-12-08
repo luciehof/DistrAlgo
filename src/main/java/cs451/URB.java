@@ -11,7 +11,7 @@ public class URB {
     private final Map<Integer, Set<Integer>> ack; // pkt hash to processes id
     private final Host self;
     Set<PerfectLink> perfectLinks;
-    private FIFO fifo;
+    //private FIFO fifo;
     private LCausal lCausal;
 
     public URB(Host self, Map<Integer, PerfectLink> idToPerfectLinks) {
@@ -64,7 +64,7 @@ public class URB {
 
     private void deliverForward() {
         for (Packet pkt : forward) {
-            if (ack.getOrDefault(pkt.hashcode(), new HashSet<>()).size() >= MAJORITY && !delivered.contains(pkt)) {
+            if (ack.getOrDefault(pkt.hashcode(), new HashSet<>()).size() > MAJORITY && !delivered.contains(pkt)) {
                 delivered.add(pkt);
                 urbDeliver(pkt);
             }
@@ -81,9 +81,9 @@ public class URB {
         }
     }
 
-    public void setFifo(FIFO fifo) {
+    /*public void setFifo(FIFO fifo) {
         this.fifo = fifo;
-    }
+    }*/
 
     public void setLCausal(LCausal lCausal) {
         this.lCausal = lCausal;

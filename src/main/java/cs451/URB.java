@@ -55,11 +55,9 @@ public class URB {
     }
 
     private void bebBroadcast(Packet pkt) {
-        new Thread(() -> {
-            for (PerfectLink perfectLink : perfectLinks) {
-                perfectLink.send(pkt);
-            }
-        }).start();
+        for (PerfectLink perfectLink : perfectLinks) {
+            perfectLink.addPktToSend(pkt);
+        }
     }
 
     private void deliverForward() {

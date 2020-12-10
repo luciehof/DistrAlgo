@@ -141,7 +141,9 @@ public class Main {
             e.printStackTrace();
         }
         if (scanner != null) {
-            return scanner.nextInt();
+            int ret = scanner.nextInt();
+            scanner.close();
+            return ret;
         } else {
             return 1;
         }
@@ -172,6 +174,7 @@ public class Main {
             while (scanner.hasNextInt()) {
                 affectingProc.add(scanner.nextInt());
             }
+            scanner.close();
             return affectingProc;
         } else {
             return affectingProc;

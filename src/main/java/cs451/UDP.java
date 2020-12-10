@@ -27,7 +27,6 @@ public class UDP {
         socket = sender.getSocket();
         new Thread(this::listen).start();
         new Thread(this::handleReceivedPackets).start();
-        System.out.println("UDP listening thread started.");
     }
 
     public void setIdToPerfectLinks(Map<Integer, PerfectLink> idToPerfectLinks) {
@@ -48,12 +47,9 @@ public class UDP {
     public void listen() {
         while (true) {
 
-            System.out.println("UDP listening.");
             DatagramPacket dp = new DatagramPacket(new byte[PKT_SIZE], PKT_SIZE);
             try {
-                System.out.println("Waiting for msgs in UDP socket.");
                 socket.receive(dp);
-                System.out.println("After receive in UDP socket.");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -65,7 +61,7 @@ public class UDP {
         while (true) {
             if (!dps.isEmpty()) {
                 dps.forEach(dp -> {
-                    byte[] payload = dp.getData(); //TODO: maybe put rcved payloads in a queue for some other thread to deal with
+                    byte[] payload = dp.getData();
                     InetAddress senderInetAddress = dp.getAddress();
                     int senderPort = dp.getPort();
                     String completeSenderAddr = senderInetAddress.toString().substring(1).concat(":".concat(String.valueOf(senderPort)));
@@ -89,11 +85,9 @@ public class UDP {
 
                     // check if pkt is an ACK
                     if (isAck(ds)) {
-                        System.out.println("ACK "+senderId+" "+seqNum);
                         perfectLink.handleAck(seqNum);
 
                     } else {
-                        System.out.println("UDP receive "+senderId+" "+seqNum);
                         Packet pkt = new Packet(seqNum, initialSenderId);
                         Map<Integer, Integer> lsnFromAffectingProc = new ConcurrentHashMap<>();
                         if (hasVectorClock(ds,lsnFromAffectingProc)) {

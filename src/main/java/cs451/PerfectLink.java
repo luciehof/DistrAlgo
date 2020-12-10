@@ -19,6 +19,8 @@ public class PerfectLink {
     private URB urb;
     private final UDP udp;
 
+    private final Set<Packet> pktsToSend;
+
     public PerfectLink(Host self, Host otherProcess, UDP udp) {
         this.self = self;
         noAck = new PriorityBlockingQueue<>();
@@ -26,20 +28,36 @@ public class PerfectLink {
         delivered = ConcurrentHashMap.newKeySet();
         this.udp = udp;
         this.otherProcess = otherProcess;
+
+        pktsToSend = ConcurrentHashMap.newKeySet();
+        new Thread(this::sendingThread).start();
+    }
+
+    private void sendingThread() {
+        while (true) {
+            if (!pktsToSend.isEmpty()) {
+                for (Packet pkt : pktsToSend) {
+                    this.send(pkt);
+                    pktsToSend.remove(pkt);
+                }
+            }
+        }
+    }
+
+    public void addPktToSend(Packet pkt) {
+        pktsToSend.add(pkt);
     }
 
     public void send(Packet pkt) {
-        // if didnt reach wd bound then send else wait for ack
         if (!snToPkt.containsKey(pkt.getSeqNum())) {
             snToPkt.put(pkt.getSeqNum(), pkt);
             noAck.add(pkt.getSeqNum());
         }
         udp.send(pkt, otherProcess);
-        //waitForAck(); // TODO: remove comment!!
+        waitForAck();
     }
 
     public void deliver(Host sender, Packet pkt) {
-        System.out.println("PL deliver "+pkt.getInitialSenderId()+" "+pkt.getSeqNum());
         if (!delivered.contains(pkt)) {
             urb.bebDeliver(sender, pkt);
             delivered.add(pkt);
@@ -63,7 +81,6 @@ public class PerfectLink {
 
     public void handleAck(int seqNum) {
         noAck.remove(seqNum);
-        // here receive new ack: if wd bound was reached, can now send a new pkt (boolean to allow sending?)
     }
 
     public void setUrb(URB urb) {
